@@ -21,6 +21,8 @@ namespace NetStat
             /// </summary>
             private bool isClientConnected = false;
 
+            private NetStatObject netStatObject = new NetStatObject();
+
             /// <summary>
             /// Поток входных данных.
             /// </summary>
@@ -110,47 +112,62 @@ namespace NetStat
             /// Параметр, ссылающийся на базовый класс для классов, содержащих данные событий, и предоставляет
             /// значение для событий, не содержащих данных.
             /// </param>
-            private async void OnGetDataClick(object sender, EventArgs e)
+            private void OnGetDataClick(object sender, EventArgs e)
             {
                 try
                 {
-                    // Для начала отправим серверу объект NetStatObject
-                    // Инициализируем объект
-                    NetStatObject netStatObject = new NetStatObject
-                    {
-                        RequestList = RequestList.GET_TCP_DATA
-                    };
-
-                    // Сериализуем его в поток байтов
-                    formatter.Serialize(outputStream, netStatObject);
-                    // Записываем получившийся поток байтов в переменную
-                    byte[] netStatObjectBytes = outputStream.ToArray();
-
-                    // Отправляем объект на сервер в виде массива байтов, асинхронно
-                    _ = await client.SendAsync(new ArraySegment<byte>(netStatObjectBytes), SocketFlags.None);
-                    // Сообщаем об этом пользователю
-                    clientLogs.Items.Add($"На сервер был отправлен запрос: {netStatObject.RequestList}");
-
-                    // Получаем объект от сервера
-                    // Подготавливаем массив байтов для хранения объектв
-                    byte[] receivedBytes = new byte[client.ReceiveBufferSize];
-                    // Асинхронно получаем объект в виде байтом с сервера
-                    int receivedBytesRead = await client.ReceiveAsync(new ArraySegment<byte>(receivedBytes), SocketFlags.None);
-                    // Инициализируем потом байтов изходя из полученных данных
-                    inputStream = new MemoryStream(receivedBytes, 0, receivedBytesRead)
-                    {
-                        // Позиция в потоке
-                        Position = 0
-                    };
-                    // Десериализируем и преобразовываем в объект
-                    NetStatObject responceNetStatObject = (NetStatObject)formatter.Deserialize(inputStream);
-                    // Уведомляем об этом пользователя
-                    clientLogs.Items.Add($"Получено сообщение от сервера: {responceNetStatObject.Message}");
+                    SendObject();
+                    ReceiveObject();
                 }
                 catch (SocketException ex)
                 {
                     MessageBox.Show(ex.Message, "Ошибка!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
+            }
+
+            private async void SendObject()
+            {
+                // Для начала отправим серверу объект NetStatObject
+                // Инициализируем объект
+                netStatObject = new NetStatObject
+                {
+                    RequestList = RequestList.GET_TCP_DATA
+                };
+
+                // Сериализуем его в поток байтов
+                formatter.Serialize(outputStream, netStatObject);
+                // Записываем получившийся поток байтов в переменную
+                byte[] netStatObjectBytes = outputStream.ToArray();
+
+                // Отправляем объект на сервер в виде массива байтов, асинхронно
+                _ = await client.SendAsync(new ArraySegment<byte>(netStatObjectBytes), SocketFlags.None);
+                // Сообщаем об этом пользователю
+                clientLogs.Items.Add($"На сервер был отправлен запрос: {netStatObject.RequestList}");
+            }
+
+            private async void ReceiveObject()
+            {
+                // Получаем объект от сервера
+                // Подготавливаем массив байтов для хранения объектв
+                byte[] receivedBytes = new byte[client.ReceiveBufferSize];
+                // Асинхронно получаем объект в виде байтом с сервера
+                int receivedBytesRead = await client.ReceiveAsync(new ArraySegment<byte>(receivedBytes), SocketFlags.None);
+                // Инициализируем потом байтов изходя из полученных данных
+                inputStream = new MemoryStream(receivedBytes, 0, receivedBytesRead)
+                {
+                    // Позиция в потоке
+                    Position = 0
+                };
+                // Десериализируем и преобразовываем в объект
+                netStatObject = (NetStatObject)formatter.Deserialize(inputStream);
+                // Уведомляем об этом пользователя
+                clientLogs.Items.Add($"==========Данные полученные с сервера==========");
+                clientLogs.Items.Add($"Сообщение: {netStatObject.Message}");
+                clientLogs.Items.Add($"IP-Адрес клиента: {netStatObject.IPAddress}");
+                clientLogs.Items.Add($"Порт клиента: {netStatObject.Port}");
+                clientLogs.Items.Add($"Байт получено: {netStatObject.BytesReveived}");
+                clientLogs.Items.Add($"Байт отправлено: {netStatObject.BytesSended}");
+                clientLogs.Items.Add($"Тип протокола: {netStatObject.ProtocolType}");
             }
         }
     }
