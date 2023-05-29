@@ -12,7 +12,7 @@ namespace NetStat
         public partial class ServerForm : Form
         {
             /// <summary>
-            /// IP-адрес сервера
+            /// IP-адрес сервера.
             /// </summary>
             private IPAddress ipAddress;
 
@@ -72,7 +72,7 @@ namespace NetStat
                     // Связываем серрвеер с конечной точкой
                     server.Bind(ipEndPoint);
 
-                    // Измееняем форму, для избежания лишних проблем (они нам не нужны)
+                    // Изменяем форму, для избежания лишних проблем (они нам не нужны)
                     ipAddressText.Enabled  = false;
                     portText.Enabled       = false;
                     btnStartServer.Enabled = false;
@@ -100,6 +100,7 @@ namespace NetStat
 
                         // Иначе идем дальше
                         serverLogs.Items.Add($"Клиент {connectedClient.RemoteEndPoint} подключился");
+                        btnStopServer.Enabled = false;
 
                         // Ждем сообщение от клиента
                         // Создаем массив для хранения объекта в виде массива байтов
@@ -118,7 +119,25 @@ namespace NetStat
                         serverLogs.Items.Add($"Клиент {connectedClient.RemoteEndPoint} отправил запрос: {responceNetStatObject.RequestList}");
                         
                         // Здесь мы должны взаимодействовать с объектом
-                        responceNetStatObject.Message = "Объект успешно получен на сервер и отправлеен обратно клиенту!";
+                        if (responceNetStatObject.RequestList == RequestList.GET_TCP_DATA) 
+                        {
+                            // Отправляем сообщение клиенту
+                            responceNetStatObject.Message = "Объект успешно получен";
+
+                            // Получаем клиентский IP-Адрес и порт
+                            string clientIPAddressAndPort = connectedClient.RemoteEndPoint.ToString();
+                            string clientIPAddress = clientIPAddressAndPort.Split(':')[0];
+                            string clientPort = clientIPAddressAndPort.Split(':')[1];
+                            responceNetStatObject.IPAddress = clientIPAddress;
+                            responceNetStatObject.Port = int.Parse(clientPort);
+
+                            // Сколько байтов получено и отправлено
+                            responceNetStatObject.BytesReveived = ((int)inputStream.Length);
+                            responceNetStatObject.BytesSended   = ((int)inputStream.Length);
+
+                            // Тип протокола подключения
+                            responceNetStatObject.ProtocolType = connectedClient.ProtocolType.ToString();
+                        }
 
                         // Отправляем объект обратно клиенту
                         // Создаем обратный, выходной поток данных
@@ -130,7 +149,7 @@ namespace NetStat
                         // Асинхронно отправляем результат, в виде массива байтов, на сервер
                         _ = await connectedClient.SendAsync(new ArraySegment<byte>(netStatObjectBytes), SocketFlags.None);
                         // Оповещаем об отправке объекта, в виде массива данных, в логи сервера
-                        serverLogs.Items.Add($"Сервер отправил объект клиенту!");
+                        serverLogs.Items.Add($"Сервер отправил ответ клиенту!");
                     }
                 }
                 catch (Exception ex)
